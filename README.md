@@ -1,15 +1,16 @@
-# Contribution [#]: [Issue Title]
+# Contribution 1: PDF download in the presence of CSS with background colour
 
-**Contribution Number:** [1 / 2 / 3]  
-**Student:** [Your Name]  
-**Issue:** [GitHub issue link]  
-**Status:** [Phase I / Phase II / Phase III / Phase IV] [In Progress / Complete]
-
+**Contribution Number:** 1
+**Student:** Zhi Li
+**Issue:** <https://github.com/marimo-team/marimo/issues/5832>
+**Status:** Phase I Complete
 ---
 
 ## Why I Chose This Issue
 
-[1-2 paragraphs explaining why this issue interests you, how it matches your skills/learning goals, what you hope to learn]
+When a marimo notebook uses a custom CSS theme with a background colour and is exported to PDF, the page margins and the full-page background conflict: with the default print margins the themed background leaves a white border around the page, and with zero margins the background fills the page but the text sits right against the edges. This matters because it makes themed notebooks look broken when shared as PDFs, and a clean fix would help both the in-app "Download as PDF" and the CLI export added in #7997.
+
+I chose this issue because it is well-scoped, the maintainers marked it `help wanted` and offered to help, and the original reporter has stepped back, so it is genuinely open. I reproduced both failure modes on the current version (marimo 0.23.9) with the `wigwam` theme, so I already have a clear picture of what "fixed" looks like: move the spacing from the paper-margin layer to the content layer, so the background reaches the paper edge while the text keeps comfortable padding (ideally scaling with the width config). I have prior experience with HTML-to-PDF and print styling, and want to deepen my understanding of print CSS and marimo's export pipeline.
 
 ---
 
@@ -17,39 +18,35 @@
 
 ### Problem Description
 
-[In your own words, what's broken or missing?]
+Exporting a themed marimo notebook (custom CSS with a background colour) to PDF produces poor output because the page margins conflict with the full-page background.
 
 ### Expected Behavior
 
-[What should happen?]
+The background colour fills the whole page edge to edge, and the text keeps comfortable spacing from the paper edges.
 
 ### Current Behavior
 
-[What actually happens?]
+- Default print margins: the background only fills the content area, leaving a white border around the page.
+- Zero margins: the background reaches the paper edge, but title/body/dividers sit right against the edges with no breathing room.
 
 ### Affected Components
 
-[Which parts of the codebase are involved?]
+The shared print CSS (`@media print` / `@page`) used by the in-app "Download as PDF" (browser print) and the CLI PDF export added in #7997 (Chromium with `print_background` + `prefer_css_page_size`).
 
 ---
 
-## Reproduction Process
-
-### Environment Setup
-
-[Notes on setting up your local development environment - challenges you faced, how you solved them]
-
 ### Steps to Reproduce
 
-1. [Step 1]
-2. [Step 2]
-3. [Observed result]
+1. Create a marimo notebook and apply a themed CSS with a background colour (e.g. `wigwam`).
+2. Export to HTML, then print to PDF.
+3. Default margins: a white border surrounds the themed background.
+4. Zero margins: the background fills the page but the text touches the edges.
 
 ### Reproduction Evidence
 
-- **Commit showing reproduction:** [Link to commit in your fork]
-- **Screenshots/logs:** [If applicable]
-- **My findings:** [What you discovered during reproduction]
+- **Environment:** marimo 0.23.9
+- **Artifacts:** `nb.py` (notebook), `wigwam.css` (theme), `nb.html` (export), `print_pdf.py` (print script), 2 PDFs (default vs zero margins), 2 screenshots.
+- **My findings:** the premise holds on the current version; the spacing needs to move from the page-margin layer to the content layer.
 
 ---
 
@@ -72,6 +69,7 @@ Using UMPIRE framework (adapted):
 **Match:** [What similar patterns/solutions exist in the codebase?]
 
 **Plan:** [Step-by-step implementation plan]
+
 1. [Modify file X to do Y]
 2. [Add function Z]
 3. [Update tests]
@@ -128,6 +126,7 @@ Using UMPIRE framework (adapted):
 **PR Description:** [Draft or final PR description - much of the content above can be adapted]
 
 **Maintainer Feedback:**
+
 - [Date]: [Summary of feedback received]
 - [Date]: [How you addressed it]
 
