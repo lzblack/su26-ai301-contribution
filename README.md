@@ -81,31 +81,37 @@ The trigger condition is in the issue title: a custom CSS theme **with a backgro
 
 ### Analysis
 
-[Your analysis of the root cause - what's causing the issue?]
+Root cause is in `frontend/src/css/app/print.css`: in print, marimo neither sets a `@page` margin (so the browser controls it → white border on Default margins) nor gives the content any inset (`.output-area` padding is zeroed → text against the edge on None margins). Background printing is already handled (`print-color-adjust: exact` is present). So the "spacing" is on the wrong layer — it should move from the page to the content.
 
 ### Proposed Solution
 
-[High-level description of your fix approach]
+In the print CSS: set `@page { margin: 0 }` so the background reaches the paper edge, and give `.output-area` a real print padding so text keeps an inset — with that padding scaling by width config. Keep the existing `print-color-adjust: exact`.
 
-### Implementation Plan
+### Implementation Plan (UMPIRE)
 
-Using UMPIRE framework (adapted):
+**Understand:** A themed notebook (background-colour CSS) can't export to a good PDF — default margins give a white border, zero margins give edge-to-edge text, no middle state. Desired: background fills the page, content keeps padding that scales with the width config (`compact`/`medium`/`full`). Enhancement to the in-app "Download as PDF" (browser-print) path.
 
-**Understand:** [Restate the problem]
+**Match:** `frontend/src/css/app/print.css` already has an `@media print` block. It implements `print-color-adjust: exact` (background printing — keep), has **no `@page` rule**, and explicitly zeroes `.output-area` padding. The fix extends this existing pattern.
 
-**Match:** [What similar patterns/solutions exist in the codebase?]
+**Plan:**
 
-**Plan:** [Step-by-step implementation plan]
+1. Add `@page { margin: 0 }` (eliminate the white border).
+2. Replace `.output-area`'s zeroed padding with a meaningful print padding (eliminate edge-to-edge text).
+3. Scale that padding with the width config.
+4. Leave `print_background` (`print-color-adjust: exact`) as-is.
+   - **File(s):** `frontend/src/css/app/print.css` (possibly the `@media print` block in `md.css`).
+**Implement:** (Phase III) Branch: <https://github.com/lzblack/marimo/tree/fix-issue-5832>
 
-1. [Modify file X to do Y]
-2. [Add function Z]
-3. [Update tests]
+**Review:** Self-review against `CONTRIBUTING.md` — `make fe-check`/`make check` (lint/typecheck/format) must pass; tests expected for code changes (see Testing Strategy); CLA signed on the PR; follow commit/PR conventions. Maintainer approval already obtained (Myles welcomed it + `help wanted`; Light2Dark reviewed the approach, "sounds reasonable", suggested validating on `kitchen_sink.py`).
 
-**Implement:** [Link to your branch/commits as you work]
+**Evaluate:** Re-run the reproduction; confirm background fills the page *and* text keeps an inset across `compact`/`medium`/`full` and against Default/None browser margins; visually compare to the issue's reference PDFs.
 
-**Review:** [Self-review checklist - does it follow the project's contribution guidelines?]
+#### Open items to verify in Phase III
 
-**Evaluate:** [How will you verify it works?]
+1. **In-app "Download as PDF" trigger.** If it opens the browser print *dialog* (user picks margins), the dialog's choice overrides `@page margin` — the reliable fix is the content padding; the white-border half may be limited. If it prints programmatically (honours `@page`), `@page margin: 0` also takes effect. Verify with the actual in-app button after installing `nbconvert[webpdf]`.
+2. **Width-config selector.** Locate how `compact`/`medium`/`full` map to the DOM:
+   `grep -rniE "data-width|width-(compact|medium|full)|appWidth" frontend/src | grep -v node_modules`
+3. **Export (nbconvert) path** — confirmed out of scope.
 
 ---
 
