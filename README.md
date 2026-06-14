@@ -32,7 +32,9 @@ The background colour fills the whole page edge to edge, and the text keeps comf
 
 ### Affected Components
 
-The shared print CSS (`@media print` / `@page`) used by the in-app "Download as PDF" (browser print) and the CLI PDF export added in #7997 (Chromium with `print_background` + `prefer_css_page_size`).
+`frontend/src/css/app/print.css` — the print CSS used by the in-app **"Download as PDF" (browser print)** path. This is the reporter's original target and the path this PR addresses.
+
+> **Scope note (verified on current `main`):** the `marimo export pdf` CLI/UI path is **out of scope**. On current `main` it goes through nbconvert (PDFExporter/LaTeX, fallback WebPDFExporter) and does **not** use `print.css`. (`prefer_css_page_size` survives only in the reveal.js *slides* export path, not regular-notebook export — so an earlier assumption that one print-CSS fix would also cover the CLI export does not hold on current `main`.)
 
 ---
 
