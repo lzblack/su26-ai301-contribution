@@ -3,7 +3,7 @@
 - **Contribution Number:** 1
 - **Student:** Zhi Li
 - **Issue:** <https://github.com/marimo-team/marimo/issues/5832>
-- **Status:** Phase II Complete
+- **Status:** Phase III Complete
 
 ---
 
@@ -72,7 +72,7 @@ The trigger condition is in the issue title: a custom CSS theme **with a backgro
 
 ### Reproduction Evidence
 
-- **Branch:** <https://github.com/lzblack/marimo/tree/fix-issue-5832>
+- **Branch:** <https://github.com/lzblack/marimo/tree/fix-issue-5832> (implementation now lives on the clean branch fix-5832-clean / [PR #9971](https://github.com/marimo-team/marimo/pull/9971))
 - **Version:** current `main` (synced from upstream), originally on 0.23.9.
 - **Artifacts:** `wigwam.css` (theme), `kitchen_sink.py` (test notebook), 2 screenshots (Default-margins white border; None-margins text-against-edge) matching the issue's `margins.pdf` / `no-margins.pdf`.
 - **Finding:** the premise holds on current `main`; `print.css` has no `@page` rule (margin delegated to the browser) and zeroes `.output-area` padding in print — the two halves of the problem.
@@ -108,64 +108,66 @@ In the print CSS: set `@page { margin: 0 }` so the background reaches the paper 
 
 **Evaluate:** Re-run the reproduction; confirm background fills the page *and* text keeps an inset across `compact`/`medium`/`full` and against Default/None browser margins; visually compare to the issue's reference PDFs.
 
-#### Open items to verify in Phase III
+#### Open items — resolved in Phase III
 
-1. **In-app "Download as PDF" trigger.** If it opens the browser print *dialog* (user picks margins), the dialog's choice overrides `@page margin` — the reliable fix is the content padding; the white-border half may be limited. If it prints programmatically (honours `@page`), `@page margin: 0` also takes effect. Verify with the actual in-app button after installing `nbconvert[webpdf]`.
-2. **Width-config selector.** Locate how `compact`/`medium`/`full` map to the DOM:
-   `grep -rniE "data-width|width-(compact|medium|full)|appWidth" frontend/src | grep -v node_modules`
+1. **In-app "Download as PDF" trigger — RESOLVED.** The current in-app "Download as PDF" is the *server-side* playwright path (#8121, Jan–Feb 2026), which renders headless and does **not** load `print.css`, so no nbconvert/playwright install was needed to validate this fix. When #5832 was filed (Jul 2025) that in-app button was the *browser-print* path (`print.css`) — the path this PR fixes. Verified via browser print (`Ctrl+P` → Save as PDF): `@page { margin: 0 }` takes effect as the dialog's default, so the white-border half is addressed at the default level (a user can still override margins manually, which is expected).
+2. **Width-config selector — RESOLVED.** Width maps to `#App[data-config-width="…"]` (values: normal/compact/medium/full/columns; `config-width-full` class also exists). Hook available for per-width scaling, but deferred — see PR open question.
 3. **Export (nbconvert) path** — confirmed out of scope.
 
 ---
 
-## Testing Strategy
+### Automated Tests
 
-### Unit Tests
-
-- [ ] Test case 1: [Description]
-- [ ] Test case 2: [Description]
-- [ ] Test case 3: [Description]
-
-### Integration Tests
-
-- [ ] Integration scenario 1
-- [ ] Integration scenario 2
+Print-CSS layout (page margins, full-bleed background, content inset) isn't covered by an obvious existing unit/e2e pattern in the repo, so no automated test was added. I asked the maintainer in the PR whether an e2e / PDF-snapshot test is expected for a CSS-only print change. The existing suite is unaffected (no JS/TS logic changed). `pnpm exec stylelint` on the changed file reports only the two pre-existing violations already present on `main` — zero new violations.
 
 ### Manual Testing
 
-[What you tested manually and results]
+- **Setup:** wigwam theme via `App(css_file="wigwam.css")` on `kitchen_sink.py`; `uv run marimo edit`, opened in the Windows browser (WSL2 localhost forwarding).
+- **Method:** browser print — `Ctrl+P` → *Save as PDF*, with "Background graphics" on.
+- **Result (Margins = Default):** themed background now fills the full page (no white border) **and** content keeps a ~2rem inset on all four sides — the middle ground the issue asks for. Screenshot attached in the PR.
+- **Before-state:** matches the issue's own `margins.pdf` (white border) and `no-margins.pdf` (edge-to-edge text).
 
 ---
 
-## Implementation Notes
+### Week 3 Progress (Phase III — Build)
 
-### Week [X] Progress
+**What I built:** a single-file change in `frontend/src/css/app/print.css`, scoped to the browser-print path:
 
-[What you built this week, challenges faced, decisions made]
+- `@page { margin: 0 }` inside `@media print` — removes the page-box margin so the themed background reaches the paper edge.
+- A print-only `padding: 2rem !important` merged into the existing `#App` rule. `#App` carries the theme background (`bg-background` → `var(--background)`) and is `w-full h-full`, so the padding sits *inside* the background box: background fills the page edge-to-edge while content is inset on all four sides.
 
-### Week [Y] Progress
+**Key decisions:**
 
-[Continue documenting as you work]
+- **Padded `#App`, not `.output-area`.** `#App` holds the theme background and fills the page, so one rule gives a uniform four-side inset with full-bleed background — cleaner than restoring `.output-area` L/R padding and separately handling top/bottom.
+- **Left `body { background-color: #fff }` untouched** — changing it would regress un-themed/default-white notebooks.
+- **Did not build width-config scaling.** The DOM hook exists (`#App[data-config-width="compact|medium|full"]`), but a single inset already solves the issue; per-width insets are raised as an open question in the PR rather than implemented speculatively. (Keeps the diff minimal and mergeable.)
+
+**Challenges faced:**
+
+- **Two distinct "PDF export" paths.** Verified via issue date + PR history that the in-app "Download as PDF" was browser-print-based when #5832 was filed (Jul 2025; dropdown added #1919), then moved to a server-side playwright path (#8036/#8121, Jan–Feb 2026) that doesn't load `print.css`. So this fix targets the path the reporter actually hit; documented the scope boundary in the PR. (Avoided installing nbconvert/playwright to chase the server path — out of scope.)
+- **Minimal stylelint diff.** `--fix` rewrote a pre-existing longhand `overflow` unrelated to my change; a second `#App` block tripped `no-duplicate-selectors`. Resolved by merging `padding` into the existing `#App` block, adding the required blank line before the comment, and verifying without `--fix`.
+- **Tangled branch history.** The original branch was based on a stale checkout; rather than rebase through unrelated upstream doc changes, rebuilt a clean branch (`fix-5832-clean`) off latest `upstream/main` with only the 8-line change.
 
 ### Code Changes
 
-- **Files modified:** [List]
-- **Key commits:** [Links to important commits]
-- **Approach decisions:** [Why you chose certain approaches]
+- **Files modified:** `frontend/src/css/app/print.css` (2 insertions, 8 lines)
+- **Key commit:** `4f92e6c2` — fix(frontend): remove print page margin and inset content for themed PDF export
+- **Branch:** <https://github.com/lzblack/marimo/tree/fix-5832-clean>
+- **Approach decisions:** see "Key decisions" above.
 
 ---
 
 ## Pull Request
 
-**PR Link:** [GitHub PR URL when submitted]
+**PR Link:** <https://github.com/marimo-team/marimo/pull/9971> (draft)
 
-**PR Description:** [Draft or final PR description - much of the content above can be adapted]
+**PR Description:** Targets the browser-print path via `print.css` (`@page { margin: 0 }` + a print-only inset on `#App`). Verified with the wigwam theme + `kitchen_sink.py`; before/after screenshot included. Scope note clarifies the current server-side playwright export (#8121) doesn't load `print.css`. Open question asks whether the inset should scale with width config, and whether an e2e/PDF-snapshot test is expected for a CSS-only change.
 
 **Maintainer Feedback:**
 
-- [Date]: [Summary of feedback received]
-- [Date]: [How you addressed it]
+- _Awaiting review._
 
-**Status:** [Awaiting review / Iterating / Approved / Merged]
+**Status:** Awaiting review (draft PR open)
 
 ---
 
