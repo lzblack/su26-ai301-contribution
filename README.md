@@ -3,7 +3,7 @@
 - **Contribution Number:** 1
 - **Student:** Zhi Li
 - **Issue:** <https://github.com/marimo-team/marimo/issues/5832>
-- **Status:** Phase III Complete
+- **Status:** Phase IV Complete
 
 ---
 
@@ -159,15 +159,38 @@ Print-CSS layout (page margins, full-bleed background, content inset) isn't cove
 
 ## Pull Request
 
-**PR Link:** <https://github.com/marimo-team/marimo/pull/9971> (draft)
+**PR Link:** <https://github.com/marimo-team/marimo/pull/9971>
 
-**PR Description:** Targets the browser-print path via `print.css` (`@page { margin: 0 }` + a print-only inset on `#App`). Verified with the wigwam theme + `kitchen_sink.py`; before/after screenshot included. Scope note clarifies the current server-side playwright export (#8121) doesn't load `print.css`. Open question asks whether the inset should scale with width config, and whether an e2e/PDF-snapshot test is expected for a CSS-only change.
+**PR Description:**
+What does this PR do?: Fixes themed-PDF export in marimo's browser print path. Inside `@media print` in `frontend/src/css/app/print.css`, it adds `@page { margin: 0 }` and sets `padding: 2rem !important` on `#App`, so notebooks using a CSS theme with a background colour render full-bleed when printed (Ctrl+P) or exported via the in-app "Download as PDF", while keeping content inset by 2rem.
+
+Why was this PR needed?: Issue #5832 reported that printing/exporting a themed notebook left an unwanted white page margin instead of the theme's background colour. The default browser `@page` margin was clipping the background; removing it and re-introducing the inset on `#App` restores the intended full-bleed look.
+
+Scope: This targets only the browser-print path. The server-side Playwright rendering path (added early 2026) does not load `print.css` and was explicitly kept out of scope; related issues #8036 and #8121 are not addressed here.
+
+What are the relevant issue numbers?: Closes #5832
+
+Does this PR meet the acceptance criteria?:
+
+- [x] Change validated against the reported case (themed notebook now full-bleed with 2rem inset)
+- [x] No regression on the default/un-themed notebook (verified via Chrome Ctrl+P)
+- [x] Follows project style (single-file, 8-line CSS change; stylelint clean)
+- [x] No breaking changes
 
 **Maintainer Feedback:**
 
-- _Awaiting review._
+- Jun 24: @Light2Dark confirmed the approach made sense and noted the Playwright export path uses a different flow and styling altogether — validating the scope boundary I'd drawn (browser-print only).
+- Jun 25: @mscolnick approved and merged the PR. No change requests were raised.
 
-**Status:** Awaiting review (draft PR open)
+**Status:** Merged (merged Jun 25, 2026 by mscolnick into `marimo-team/marimo:main`, commit `c2971bc2`)
+
+## Learnings & Reflections
+
+Biggest lesson: scoping is a contribution skill in its own right, not a step before the "real" work. The bug touched two superficially similar surfaces — the browser print path (`print.css`) and the newer server-side Playwright export — and the cheap, mergeable win was the former. I deliberately excluded the Playwright path (#8036, #8121) up front and stated that boundary explicitly in the PR. A maintainer then independently confirmed the boundary was correct before approving. Drawing the line early is what turned this into a single-commit, zero-rework merge rather than an open-ended refactor.
+
+Hardest part: trusting a small diff. The final change is 8 lines in one file, which felt almost too small to be "the fix." Verifying it the right way — reproducing the themed case, confirming the full-bleed-plus-inset result, and separately confirming the default notebook didn't regress — was what gave me confidence that the smallness was correct, not incomplete.
+
+What I'd do differently: nothing major on the technical path, but I'd convert from draft to ready-for-review sooner. The fix and its validation were done well before I marked it ready; the instinct to keep polishing added days without adding value.
 
 ---
 
